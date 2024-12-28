@@ -1,22 +1,16 @@
-
 import base64
 import collections
 import time
-import io
 import json
 import requests
-from PIL import Image
 import cv2
 import numpy as np
-import glob
-import atexit
-from sys import platform
 import sys
-import pdb
 from . import communication
 
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
+
 
 class UnityCommunication(object):
     """
@@ -44,7 +38,7 @@ class UnityCommunication(object):
             self.launcher = communication.UnityLauncher(port=port, file_name=file_name, x_display=x_display,
                                                         no_graphics=no_graphics, logging=logging,
                                                         docker_enabled=docker_enabled)
-            
+
             if self.launcher.batchmode:
                 print('Getting connection...')
                 succeeded = False
@@ -58,18 +52,18 @@ class UnityCommunication(object):
                         time.sleep(2)
                 if not succeeded:
                     sys.exit()
-                    
+
         # collections.Iterable was depreciated in Python 3.10, ensure compatability with current Python versions
         if not hasattr(collections, 'Iterable'):
             collections.Iterable = collections.abc.Iterable
 
     def requests_retry_session(
-                            self,
-                            retries=5,
-                            backoff_factor=2,
-                            status_forcelist=(500, 502, 504),
-                            session=None,
-                        ):
+            self,
+            retries=5,
+            backoff_factor=2,
+            status_forcelist=(500, 502, 504),
+            session=None,
+    ):
         session = session or requests.Session()
         retry = Retry(
             total=retries,
@@ -80,18 +74,17 @@ class UnityCommunication(object):
         )
         adapter = HTTPAdapter(max_retries=retry)
         session.mount('http://', adapter)
-    
+
         return session
 
     def close(self):
         if self.launcher is not None:
             self.launcher.close()
 
-
     def post_command(self, request_dict, repeat=False):
         try:
             if repeat:
-                resp = self.requests_retry_session().post(self._address, json=request_dict) 
+                resp = self.requests_retry_session().post(self._address, json=request_dict)
             else:
                 resp = requests.post(self._address, json=request_dict, timeout=self.timeout_wait)
             if resp.status_code != requests.codes.ok:
@@ -103,9 +96,9 @@ class UnityCommunication(object):
 
     def check_connection(self):
         response = self.post_command(
-                {'id': str(time.time()), 'action': 'idle'}, repeat=True)
+            {'id': str(time.time()), 'action': 'idle'}, repeat=True)
         return response['success']
-    
+
     def get_visible_objects(self, camera_index):
         """
         Obtain visible objects according to a given camera
@@ -146,13 +139,13 @@ class UnityCommunication(object):
             mode = 'fix_room'
 
         response = self.post_command(
-            {'id': str(time.time()), 'action': 'add_character', 
-             'stringParams':[json.dumps({
-                'character_resource': character_resource,
-                'mode': mode,
-                'character_position': {'x': pos[0], 'y': pos[1], 'z': pos[2]},
-                'initial_room': initial_room
-                })]})
+            {'id': str(time.time()), 'action': 'add_character',
+             'stringParams': [json.dumps({
+                 'character_resource': character_resource,
+                 'mode': mode,
+                 'character_position': {'x': pos[0], 'y': pos[1], 'z': pos[2]},
+                 'initial_room': initial_room
+             })]})
         return response['success']
 
     def move_character(self, char_index, pos):
@@ -167,18 +160,18 @@ class UnityCommunication(object):
         response = self.post_command(
             {'id': str(time.time()),
              'action': 'move_character',
-             'stringParams':[json.dumps({
-                'char_index': char_index,
-                'character_position': {'x': pos[0], 'y': pos[1], 'z': pos[2]},
-                })]
-            })
+             'stringParams': [json.dumps({
+                 'char_index': char_index,
+                 'character_position': {'x': pos[0], 'y': pos[1], 'z': pos[2]},
+             })]
+             })
         return response['success']
 
     def check(self, script_lines):
         response = self.post_command({'id': str(time.time()), 'action': 'check_script', 'stringParams': script_lines})
         return response['success'], response['message']
 
-    def add_camera(self, position=[0,1,0], rotation=[0,0,0], field_view=40):
+    def add_camera(self, position=[0, 1, 0], rotation=[0, 0, 0], field_view=40):
         """
         Add a new scene camera. The camera will be static in the scene.
 
@@ -189,16 +182,16 @@ class UnityCommunication(object):
         :return: succes (bool)
         """
         cam_dict = {
-                'position': {'x': position[0], 'y': position[1], 'z': position[2]},
-                'rotation': {'x': rotation[0], 'y': rotation[1], 'z': rotation[2]},
-                'field_view': field_view
+            'position': {'x': position[0], 'y': position[1], 'z': position[2]},
+            'rotation': {'x': rotation[0], 'y': rotation[1], 'z': rotation[2]},
+            'field_view': field_view
         }
         response = self.post_command(
-                {'id': str(time.time()), 'action': 'add_camera',
-                    'stringParams': [json.dumps(cam_dict)]})
+            {'id': str(time.time()), 'action': 'add_camera',
+             'stringParams': [json.dumps(cam_dict)]})
         return response['success'], response['message']
 
-    def update_camera(self, camera_index, position=[0,1,0], rotation=[0,0,0], field_view=40):
+    def update_camera(self, camera_index, position=[0, 1, 0], rotation=[0, 0, 0], field_view=40):
         """
         Updates an existing camera, identified by index.
         :param int camera_index: the index of the camera you want to update
@@ -210,18 +203,17 @@ class UnityCommunication(object):
         """
         cam_dict = {
 
-                'position': {'x': position[0], 'y': position[1], 'z': position[2]},
-                'rotation': {'x': rotation[0], 'y': rotation[1], 'z': rotation[2]},
-                'field_view': field_view
+            'position': {'x': position[0], 'y': position[1], 'z': position[2]},
+            'rotation': {'x': rotation[0], 'y': rotation[1], 'z': rotation[2]},
+            'field_view': field_view
         }
         response = self.post_command(
-                {'id': str(time.time()), 'action': 'update_camera',
-                    'intParams': [camera_index],
-                    'stringParams': [json.dumps(cam_dict)]})
+            {'id': str(time.time()), 'action': 'update_camera',
+             'intParams': [camera_index],
+             'stringParams': [json.dumps(cam_dict)]})
         return response['success'], response['message']
 
-
-    def add_character_camera(self, position=[0,1,0], rotation=[0,0,0], field_view=60, name="new_camera"):
+    def add_character_camera(self, position=[0, 1, 0], rotation=[0, 0, 0], field_view=60, name="new_camera"):
         """
         Add a new character camera. The camera will be added to every character you include in the scene, and it will move with 
         the character. This must be called before adding any character.
@@ -233,17 +225,17 @@ class UnityCommunication(object):
         :return: succes (bool)
         """
         cam_dict = {
-                'position': {'x': position[0], 'y': position[1], 'z': position[2]},
-                'rotation': {'x': rotation[0], 'y': rotation[1], 'z': rotation[2]},
-                'field_view': field_view,
-                'camera_name': name
+            'position': {'x': position[0], 'y': position[1], 'z': position[2]},
+            'rotation': {'x': rotation[0], 'y': rotation[1], 'z': rotation[2]},
+            'field_view': field_view,
+            'camera_name': name
         }
         response = self.post_command(
-                {'id': str(time.time()), 'action': 'add_character_camera',
-                    'stringParams': [json.dumps(cam_dict)]})
+            {'id': str(time.time()), 'action': 'add_character_camera',
+             'stringParams': [json.dumps(cam_dict)]})
         return response['success'], response['message']
 
-    def update_character_camera(self, position=[0,1,0], rotation=[0,0,0], field_view=60, name="PERSON_FRONT"):
+    def update_character_camera(self, position=[0, 1, 0], rotation=[0, 0, 0], field_view=60, name="PERSON_FRONT"):
         """
         Update character camera specified by name. This must be called before adding any character.
 
@@ -254,14 +246,14 @@ class UnityCommunication(object):
         :return: succes (bool)
         """
         cam_dict = {
-                'position': {'x': position[0], 'y': position[1], 'z': position[2]},
-                'rotation': {'x': rotation[0], 'y': rotation[1], 'z': rotation[2]},
-                'field_view': field_view,
-                'camera_name': name
+            'position': {'x': position[0], 'y': position[1], 'z': position[2]},
+            'rotation': {'x': rotation[0], 'y': rotation[1], 'z': rotation[2]},
+            'field_view': field_view,
+            'camera_name': name
         }
         response = self.post_command(
-                {'id': str(time.time()), 'action': 'update_character_camera',
-                    'stringParams': [json.dumps(cam_dict)]})
+            {'id': str(time.time()), 'action': 'update_character_camera',
+             'stringParams': [json.dumps(cam_dict)]})
         return response['success'], response['message']
 
     def reset(self, environment=None):
@@ -269,12 +261,10 @@ class UnityCommunication(object):
         Reset scene. Deletes characters and scene changes, and loads the scene in scene_index
 
         :param int environment: integer between 0 and 49, corresponding to the apartment we want to load
-        :return: succes (bool)
+        :return: success (bool)
         """
-        response = self.post_command({'id': str(time.time()), 'action': 'clear',
-                                  'intParams': [] if environment is None else [environment]})
-        response = self.post_command({'id': str(time.time()), 'action': 'environment',
-                                    'intParams': [] if environment is None else [environment]})
+        response = self.post_command({'id': str(time.time()), 'action': 'reset',
+                                      'intParams': [] if environment is None else [environment]})
         return response['success']
 
     def fast_reset(self, environment=None):
@@ -284,7 +274,7 @@ class UnityCommunication(object):
         :return: success (bool)
         """
         response = self.post_command({'id': str(time.time()), 'action': 'fast_reset',
-                                  'intParams': [] if environment is None else [environment]})
+                                      'intParams': [] if environment is None else [environment]})
         return response['success']
 
     def procedural_generation(self, seed=None):
@@ -297,7 +287,7 @@ class UnityCommunication(object):
         response = self.post_command({'id': str(time.time()), 'action': 'clear_procedural',
                                       'intParams': []})
         response = self.post_command({'id': str(time.time()), 'action': 'procedural_generation',
-                                  'intParams': [] if seed is None else [seed]})
+                                      'intParams': [] if seed is None else [seed]})
         return response['success'], response['message']
 
     def camera_count(self):
@@ -384,10 +374,10 @@ class UnityCommunication(object):
         :return: pair success (bool), message: (str)
         """
         config = {
-            'randomize': randomize, 
-            'random_seed': random_seed, 
+            'randomize': randomize,
+            'random_seed': random_seed,
             'animate_character': animate_character,
-            'ignore_obstacles': ignore_placing_obstacles, 
+            'ignore_obstacles': ignore_placing_obstacles,
             'transfer_transform': transfer_transform
         }
         string_params = [json.dumps(config), json.dumps(new_graph)]
@@ -415,13 +405,13 @@ class UnityCommunication(object):
         :return: success (bool)
         """
         time_dict = {
-                'hours': hours,
-                'minutes': minutes,
-                'seconds': seconds
+            'hours': hours,
+            'minutes': minutes,
+            'seconds': seconds
         }
         response = self.post_command(
-                {'id': str(time.time()), 'action': 'set_time',
-                    'stringParams': [json.dumps(time_dict)]})
+            {'id': str(time.time()), 'action': 'set_time',
+             'stringParams': [json.dumps(time_dict)]})
         return response['success']
 
     def activate_physics(self, gravity=-10):
@@ -433,11 +423,11 @@ class UnityCommunication(object):
         :return: success (bool)
         """
         physics_dict = {
-                'gravity': gravity
+            'gravity': gravity
         }
         response = self.post_command(
-                {'id': str(time.time()), 'action': 'activate_physics',
-                    'stringParams': [json.dumps(physics_dict)]})
+            {'id': str(time.time()), 'action': 'activate_physics',
+             'stringParams': [json.dumps(physics_dict)]})
         return response['success']
 
     def remove_terrain(self):
@@ -489,11 +479,11 @@ class UnityCommunication(object):
         assert isinstance(script, list), "script must be a list of strings"
         assert isinstance(image_synthesis, list), "image_synthesis must be a list of strings"
         assert isinstance(camera_mode, list), "camera_mode must be a list of strings"
-        
+
         params = {'randomize_execution': randomize_execution, 'random_seed': random_seed,
                   'processing_time_limit': processing_time_limit, 'skip_execution': skip_execution,
                   'output_folder': output_folder, 'file_name_prefix': file_name_prefix,
-                  'frame_rate': frame_rate, 'image_synthesis': image_synthesis, 
+                  'frame_rate': frame_rate, 'image_synthesis': image_synthesis,
                   'find_solution': find_solution,
                   'save_pose_data': save_pose_data, 'save_scene_states': save_scene_states,
                   'camera_mode': camera_mode, 'recording': recording,
@@ -506,16 +496,16 @@ class UnityCommunication(object):
             message = json.loads(response['message'])
         except ValueError:
             message = response['message']
-        
+
         return response['success'], message
 
-        
+
 def _decode_image(img_string):
     img_bytes = base64.b64decode(img_string)
     if 'PNG' == img_bytes[1:4]:
         img_file = cv2.imdecode(np.fromstring(img_bytes, np.uint8), cv2.IMREAD_COLOR)
     else:
-        img_file = cv2.imdecode(np.fromstring(img_bytes, np.uint8), cv2.IMREAD_ANYDEPTH+cv2.IMREAD_ANYCOLOR)
+        img_file = cv2.imdecode(np.fromstring(img_bytes, np.uint8), cv2.IMREAD_ANYDEPTH + cv2.IMREAD_ANYCOLOR)
     return img_file
 
 
@@ -532,6 +522,7 @@ class UnityEngineException(Exception):
     - Unity has received invalid request
     More information is in the message.
     """
+
     def __init__(self, status_code, resp_dict):
         resp_msg = resp_dict['message'] if 'message' in resp_dict else 'Message not available'
         self.message = 'Unity returned response with status: {0} ({1}), message: {2}'.format(
